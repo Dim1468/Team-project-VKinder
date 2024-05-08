@@ -163,7 +163,7 @@ def search_users(user_id, criteria, user_token):
             available_users = [user for user in users['items'] if user['id'] not in shown_users]
             if available_users:
                 random_user = random.choice(available_users)
-                user_info = f"{random_user['first_name']} {random_user['last_name']}\nhttps://vk.com/id{random_user['id'}"
+                user_info = f"{random_user['first_name']} {random_user['last_name']}\nhttps://vk.com/id{random_user['id']}"
                 user_profile_link = f"https://vk.com/id{random_user['id']}"
                 write_msg(user_id, f"{user_info}\n")
 
