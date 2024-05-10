@@ -1,6 +1,6 @@
 import psycopg2
 from psycopg2.extras import Json
-from work_with_data_base.interactions_with_DB import (User, to_like, to_block)
+from work_with_data_base.interactions_with_DB import (User, Actions)
 from work_with_data_base.creation_of_DB import renovate_tables
 from work_with_data_base.user_data.DB_login_info import database, user, password
 
@@ -23,6 +23,13 @@ if __name__ == '__main__':
             get_user2 = User(cur, gender='male', age='18', city='Stokholm')
             get_user3 = User(cur, age='13', city='valle del sol')
 
+            like1 = Actions(conn, 1, like_id=3)
+            like2 = Actions(conn, 7, like_id=3)
+            like3 = Actions(conn, 3, like_id=3)
+            block1 = Actions(conn, 2, block_id=1)
+            block2 = Actions(conn, 3, block_id=3)
+            block3 = Actions(conn, 15, block_id=1)
+
             # Очищаю данные таблицы
             renovate_tables(cur)
 
@@ -37,11 +44,11 @@ if __name__ == '__main__':
             get_user3.get_a_person()
 
     # тестирую функцию to_like
-    to_like(conn, 1, 3)
-    to_like(conn, 7, 3)
-    to_like(conn, 3, 3)
+    like1.to_like()
+    like2.to_like()
+    like3.to_like()
 
     # тестирую функцию to_block
-    to_block(conn, 2, 1)
-    to_block(conn, 3, 3)
-    to_block(conn, 15, 1)
+    block1.to_block()
+    block2.to_block()
+    block3.to_block()
