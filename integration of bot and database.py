@@ -1,7 +1,7 @@
 import json
 import requests
 from tqdm import tqdm
-# from sql когда будет готов import *
+from interactions_with_DB import *
 
 class VK_Bot:
     def __init__(self, gender, age, city, access_token, vk_user_id):
