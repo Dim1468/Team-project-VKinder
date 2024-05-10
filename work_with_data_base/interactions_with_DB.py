@@ -2,8 +2,9 @@ import psycopg2
 
 
 class User:
-    def __init__(self, cur, gender=None, age=None, city=None, first_name=None, last_name=None,
+    def __init__(self, conn, cur, gender=None, age=None, city=None, first_name=None, last_name=None,
                  account_link=None, photo_links=None):
+        self.conn = conn
         self.cur = cur
         self.first_name = first_name
         self.last_name = last_name
@@ -12,6 +13,7 @@ class User:
         self.city = city
         self.account_link = account_link
         self.photo_links = photo_links
+        self.user_id = self.id_by_link()
 
     def get_a_person(self) -> tuple:
         self.cur.execute('''
@@ -45,46 +47,39 @@ class User:
             ''', (self.first_name, self.last_name, self.gender, self.age,
                   self.city, self.account_link, self.photo_links))
 
-
-def id_by_link(cur, account_link) -> int:
-    cur.execute('''
-        SELECT id 
-        FROM user_account
-        WHERE account_link = %s
-    ''', (account_link,))
-    user_id = cur.fetchone()[0]
-    print(user_id)
-    return user_id
-
-
-class Actions:
-    def __init__(self, conn, user_id, like_id=None, block_id=None):
-        self.conn = conn
-        self.user_id = user_id
-        self.like_id = like_id
-        self.block_id = block_id
-
-    def to_like(self):
+    def id_by_link(self) -> int:
         try:
-            if self.user_id != self.like_id:
+            self.cur.execute('''
+                SELECT id 
+                FROM user_account
+                WHERE account_link = %s
+            ''', (self.account_link,))
+            user_id = int(self.cur.fetchone()[0])
+        except TypeError:
+            user_id = None
+        return user_id
+
+    def to_like(self, like_id):
+        try:
+            if self.user_id != like_id:
                 with self.conn:
                     with self.conn.cursor() as cur:
                         cur.execute('''
                             INSERT INTO to_like(user_account_id, liked_account_id) VALUES(%s, %s)
-                        ''', (self.user_id, self.like_id))
+                        ''', (self.user_id, like_id))
             else:
                 print('Так нельзя!')
         except psycopg2.errors.ForeignKeyViolation:
             print('Такого пользователя не существует')
 
-    def to_block(self):
+    def to_block(self, block_id):
         try:
-            if self.user_id != self.block_id:
+            if self.user_id != block_id:
                 with self.conn:
                     with self.conn.cursor() as cur:
                         cur.execute('''
                             INSERT INTO to_block(user_account_id, blocked_account_id) VALUES(%s, %s)
-                        ''', (self.user_id, self.block_id))
+                        ''', (self.user_id, block_id))
             else:
                 print('Нельзя заблокировать самого себя')
         except psycopg2.errors.ForeignKeyViolation:
