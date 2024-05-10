@@ -57,29 +57,35 @@ def id_by_link(cur, account_link) -> int:
     return user_id
 
 
-def to_like(conn, user_id, like_id):
-    try:
-        if user_id != like_id:
-            with conn:
-                with conn.cursor() as cur:
-                    cur.execute('''
-                        INSERT INTO to_like(user_account_id, liked_account_id) VALUES(%s, %s)
-                    ''', (user_id, like_id))
-        else:
-            print('Так нельзя!')
-    except psycopg2.errors.ForeignKeyViolation:
-        print('Такого пользователя не существует')
+class Actions:
+    def __init__(self, conn, user_id, like_id=None, block_id=None):
+        self.conn = conn
+        self.user_id = user_id
+        self.like_id = like_id
+        self.block_id = block_id
 
+    def to_like(self):
+        try:
+            if self.user_id != self.like_id:
+                with self.conn:
+                    with self.conn.cursor() as cur:
+                        cur.execute('''
+                            INSERT INTO to_like(user_account_id, liked_account_id) VALUES(%s, %s)
+                        ''', (self.user_id, self.like_id))
+            else:
+                print('Так нельзя!')
+        except psycopg2.errors.ForeignKeyViolation:
+            print('Такого пользователя не существует')
 
-def to_block(conn, user_id, block_id):
-    try:
-        if user_id != block_id:
-            with conn:
-                with conn.cursor() as cur:
-                    cur.execute('''
-                        INSERT INTO to_block(user_account_id, blocked_account_id) VALUES(%s, %s)
-                    ''', (user_id, block_id))
-        else:
-            print('Нельзя заблокировать самого себя')
-    except psycopg2.errors.ForeignKeyViolation:
-        print('Такого пользователя не существует')
+    def to_block(self):
+        try:
+            if self.user_id != self.block_id:
+                with self.conn:
+                    with self.conn.cursor() as cur:
+                        cur.execute('''
+                            INSERT INTO to_block(user_account_id, blocked_account_id) VALUES(%s, %s)
+                        ''', (self.user_id, self.block_id))
+            else:
+                print('Нельзя заблокировать самого себя')
+        except psycopg2.errors.ForeignKeyViolation:
+            print('Такого пользователя не существует')
