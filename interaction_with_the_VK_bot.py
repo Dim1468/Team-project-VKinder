@@ -1,9 +1,15 @@
 import logging
 import random
+import psycopg2
 import vk_api
 from vk_api.longpoll import VkLongPoll, VkEventType
 from vk_api.keyboard import VkKeyboard, VkKeyboardColor
 from Token import community_token, user_token
+from work_with_data_base.interactions_with_DB import User_DB
+from work_with_data_base.user_data.DB_login_info import database, user, password
+
+conn = psycopg2.connect(database=database, user=user, password=password, host="localhost", port="5432")
+cur = conn.cursor()
 
 # Логирование
 logging.basicConfig(filename='app.log', level=logging.INFO)
@@ -95,15 +101,8 @@ def get_city_id(city_name):
     Returns:
         int: ID города.
     """
-    try:
-        city = vk_user_token.method('database.getCities', {'q': city_name})
-        return city['items'][0]['id'] if city['count'] > 0 else None
-    except KeyError as e:
-        logging.error(f"KeyError in get_city_id: {e}")
-        return None
-    except Exception as e:
-        logging.error(f"Error in get_city_id: {e}")
-        return None
+    city = vk_user_token.method('database.getCities', {'q': city_name})
+    return city['items'][0]['id'] if city['count'] > 0 else None
 
 
 def create_next_button():
@@ -137,6 +136,36 @@ def create_gender_keyboard():
         return None
 
 
+def create_like_button():
+    """
+    Создает клавиатуру с кнопкой "Like".
+    Returns:
+        VkKeyboard: Объект клавиатуры с кнопкой "Like".
+    """
+    try:
+        like_button = VkKeyboard(one_time=False, inline=True)
+        like_button.add_button('Like', color=VkKeyboardColor.POSITIVE)
+        return like_button
+    except Exception as e:
+        logging.error(f"Error in create_like_button: {e}")
+        return None
+
+
+def create_block_button():
+    """
+    Создает клавиатуру с кнопкой "ЧС" (Черный список).
+    Returns:
+        VkKeyboard: Объект клавиатуры с кнопкой "ЧС".
+    """
+    try:
+        block_button = VkKeyboard(one_time=False, inline=True)
+        block_button.add_button('ЧС', color=VkKeyboardColor.NEGATIVE)
+        return block_button
+    except Exception as e:
+        logging.error(f"Error in create_block_button: {e}")
+        return None
+
+
 def search_users(user_id, criteria, user_token):
     """
     Выполняет поиск пользователей по заданным критериям.
@@ -144,53 +173,55 @@ def search_users(user_id, criteria, user_token):
           criteria (int): Критерий поиска (пол).
           user_token (str): Токен пользователя для доступа к API VK.
     """
-    try:
-        user_profile = get_user_profile(user_id)
-        user_city_name = user_profile.get('city', {}).get('title', '')
-        user_city_id = get_city_id(user_city_name)
 
-        if user_city_id is None:
-            write_msg(user_id, 'Не удалось определить ваш город.')
-            return
+    user_profile = get_user_profile(user_id)
+    user_city_name = user_profile.get('city', {}).get('title', '')
+    user_city_id = get_city_id(user_city_name)
 
-        user_age = 2024 - int(user_profile['bdate'].split('.')[-1])
+    if user_city_id is None:
+        write_msg(user_id, 'Не удалось определить ваш город.')
+        return
+    print(user_city_name)
+    user_age = 2024 - int(user_profile['bdate'].split('.')[-1])
 
-        users = vk_api.VkApi(token=user_token).method('users.search',
-                                                       {'count': 10, 'fields': 'photo_200', 'sex': criteria,
-                                                        'city': user_city_id, 'age_from': user_age - 2,
-                                                        'age_to': user_age + 2})
-        if users['items']:
-            available_users = [user for user in users['items'] if user['id'] not in shown_users]
-            if available_users:
-                random_user = random.choice(available_users)
-                user_info = f"{random_user['first_name']} {random_user['last_name']}\nhttps://vk.com/id{random_user['id']}"
-                user_profile_link = f"https://vk.com/id{random_user['id']}"
-                write_msg(user_id, f"{user_info}\n")
+    users = vk_api.VkApi(token=user_token).method('users.search',
+                                                  {'count': 10, 'fields': 'photo_200', 'sex': criteria,
+                                                   'city': user_city_id, 'age_from': user_age - 2,
+                                                   'age_to': user_age + 2})
+    if users['items']:
+        available_users = [user for user in users['items'] if user['id'] not in shown_users]
+        if available_users:
+            random_user = random.choice(available_users)
+            user_info = f"{random_user['first_name']} {random_user['last_name']}\nhttps://vk.com/id{random_user['id']}"
+            user_profile_link = f"https://vk.com/id{random_user['id']}"
+            write_msg(user_id, f"{user_info}\n")
 
-                photo_links = get_top_photos(random_user['id'])
-                for link in photo_links:
-                    write_msg(user_id, 'Фотография:', photo_links=[link])
+            photo_links = get_top_photos(random_user['id'])
+            for link in photo_links:
+                write_msg(user_id, 'Фотография:', photo_links=[link])
 
-                shown_users.append(random_user['id'])
+            shown_users.append(random_user['id'])
 
-                next_button = create_next_button()
-                write_msg(user_id, "Хотите еще вариантов?", keyboard=next_button.get_keyboard())
+            keyboard = VkKeyboard(one_time=False, inline=True)
+            keyboard.add_button('Далее', color=VkKeyboardColor.PRIMARY)
+            keyboard.add_button('Like', color=VkKeyboardColor.POSITIVE)
+            keyboard.add_button('ЧС', color=VkKeyboardColor.NEGATIVE)
+            write_msg(user_id, "Выберите действие:", keyboard=keyboard.get_keyboard())
 
-            else:
-                write_msg(user_id, 'Не удалось найти подходящих пользователей.')
 
         else:
             write_msg(user_id, 'Не удалось найти подходящих пользователей.')
 
-    except Exception as e:
-        logging.error(f"Error in search_users: {e}")
+    else:
+        write_msg(user_id, 'Не удалось найти подходящих пользователей.')
+
 
 try:
     criteria = None
-    
+
 except Exception as e:
     logging.error(f"Error in other functions: {e}")
-    
+
 
 # Основной цикл
 def main_loop():
@@ -211,6 +242,35 @@ def main_loop():
                         search_users(event.user_id, criteria, user_token)
                     else:
                         write_msg(event.user_id, 'Сначала укажите пол.')
+                elif request == 'Like' or request == 'ЧС':
+                    # Получаем информацию о пользователе
+                    user_info = vk.method('users.get', {'user_ids': event.user_id, 'fields': 'first_name,last_name'})
+                    first_name = user_info[0]['first_name']
+                    last_name = user_info[0]['last_name']
+                    account_link = f"https://vk.com/id{event.user_id}"
+
+                    # Получаем топ-3 фотографии пользователя
+                    photo_links = get_top_photos(event.user_id)
+
+                    # Создаем объект для работы с БД
+                    user_db = User_DB(conn, cur, gender=None, age=None, city=None,
+                                      first_name=first_name, last_name=last_name,
+                                      account_link=account_link, photo_links=photo_links)
+
+                    if request == 'Like':
+                        user_db.put_a_person()
+                        write_msg(event.user_id, 'Вы добавили вариант в список понравившихся.')
+                    elif request == 'ЧС':
+                        user_db.put_a_person()
+                        write_msg(event.user_id, 'Вы добавили вариант в черный список.')
+
+                    if criteria:
+                        if event.user_id in shown_users:
+                            shown_users.remove(event.user_id)
+                        search_users(event.user_id, criteria, user_token)
+                    else:
+                        write_msg(event.user_id, 'Сначала укажите пол.')
+
 
 try:
     main_loop()
