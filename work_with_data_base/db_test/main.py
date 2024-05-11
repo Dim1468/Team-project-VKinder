@@ -1,7 +1,6 @@
 import psycopg2
 from psycopg2.extras import Json
 from work_with_data_base.interactions_with_DB import (User_DB)
-from work_with_data_base.creation_of_DB import renovate_tables
 from work_with_data_base.user_data.DB_login_info import database, user, password
 
 if __name__ == '__main__':
@@ -22,9 +21,6 @@ if __name__ == '__main__':
             get_user1 = User_DB(conn, cur, city='Stokholm')
             get_user2 = User_DB(conn, cur, gender='male', age='18', city='Stokholm')
             get_user3 = User_DB(conn, cur, age='13', city='valle del sol')
-
-            # Очищаю данные таблицы
-            renovate_tables(cur)
 
             # Заполняю таблицу пользователей
             put_user1.put_a_person()
