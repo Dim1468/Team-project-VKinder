@@ -1,7 +1,7 @@
 import psycopg2
 
 
-class User:
+class User_DB:
     def __init__(self, conn, cur, gender=None, age=None, city=None, first_name=None, last_name=None,
                  account_link=None, photo_links=None):
         self.conn = conn
