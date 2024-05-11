@@ -1,6 +1,6 @@
 import psycopg2
 from psycopg2.extras import Json
-from work_with_data_base.interactions_with_DB import (User)
+from work_with_data_base.interactions_with_DB import (User_DB)
 from work_with_data_base.creation_of_DB import renovate_tables
 from work_with_data_base.user_data.DB_login_info import database, user, password
 
@@ -9,19 +9,19 @@ if __name__ == '__main__':
         with conn.cursor() as cur:
 
             # Создаю пользователей
-            put_user1 = User(conn, cur, 'female', None, 'Stokholm', 'Maria',
+            put_user1 = User_DB(conn, cur, 'female', None, 'Stokholm', 'Maria',
                              'Reinolds', 'jbjkcmck',
                              photo_links=Json({
                                  1: 'https://i.yapx.cc/OMDU5.jpg',
                                  2: 'https://i.pinimg.com/736x/7c/24/cc/7c24ccdd8698cce9aa18b13ec6b59082.jpg',
                                  3: 'https://www.youtube.com/watch?v=1HVWTrbgmxw'
                              }))
-            put_user2 = User(conn, cur, 'male', '18', 'Stokholm', 'Leo', 'Peterson', 'sxjdvbkbc')
-            put_user3 = User(conn, cur, None, '13', 'Valle del sol', 'Xio', 'Mala-Suerte', 'israpsidian')
+            put_user2 = User_DB(conn, cur, 'male', '18', 'Stokholm', 'Leo', 'Peterson', 'sxjdvbkbc')
+            put_user3 = User_DB(conn, cur, None, '13', 'Valle del sol', 'Xio', 'Mala-Suerte', 'israpsidian')
 
-            get_user1 = User(conn, cur, city='Stokholm')
-            get_user2 = User(conn, cur, gender='male', age='18', city='Stokholm')
-            get_user3 = User(conn, cur, age='13', city='valle del sol')
+            get_user1 = User_DB(conn, cur, city='Stokholm')
+            get_user2 = User_DB(conn, cur, gender='male', age='18', city='Stokholm')
+            get_user3 = User_DB(conn, cur, age='13', city='valle del sol')
 
             # Очищаю данные таблицы
             renovate_tables(cur)
