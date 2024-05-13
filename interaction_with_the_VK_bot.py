@@ -2,13 +2,14 @@ import logging
 import random
 import psycopg2
 import vk_api
+from datetime import datetime
 from vk_api.longpoll import VkLongPoll, VkEventType
 from vk_api.keyboard import VkKeyboard, VkKeyboardColor
 from Token import community_token, user_token
-from work_with_data_base.interactions_with_DB import User_DB
+from work_with_data_base.interactions_with_DB import (User_DB)
 from work_with_data_base.user_data.DB_login_info import database, user, password
 
-conn = psycopg2.connect(database=database, user=user, password=password, host="localhost", port="5432")
+conn = psycopg2.connect(database=database, user=user, password=password)
 cur = conn.cursor()
 
 # Логирование
@@ -93,6 +94,15 @@ def get_top_photos(user_id):
             logging.error(f"Error getting top photos: {e}")
             raise
 
+
+def get_user_age(birthdate_str):
+    if birthdate_str:
+        birthdate = datetime.strptime(birthdate_str, '%d.%m.%Y')
+        current_date = datetime.now()
+        age = current_date.year - birthdate.year - ((current_date.month, current_date.day) < (birthdate.month, birthdate.day))
+        return age
+    else:
+        return -1
 
 def get_city_id(city_name):
     """
@@ -181,7 +191,6 @@ def search_users(user_id, criteria, user_token):
     if user_city_id is None:
         write_msg(user_id, 'Не удалось определить ваш город.')
         return
-    print(user_city_name)
     user_age = 2024 - int(user_profile['bdate'].split('.')[-1])
 
     users = vk_api.VkApi(token=user_token).method('users.search',
@@ -229,47 +238,81 @@ def main_loop():
         if event.type == VkEventType.MESSAGE_NEW:
             if event.to_me:
                 request = event.text
+                user_id = event.user_id  # Получаем ID пользователя
                 if request == 'Начать' or request in hello_list:
-                    write_msg(event.user_id, f'{random.choice(answer_list)}')
-                    write_msg(event.user_id,
+                    # Получаем информацию о профиле пользователя
+                    user_profile = get_user_profile(user_id)
+                    first_name = user_profile.get('first_name', '')
+                    last_name = user_profile.get('last_name', '')
+                    gender_mapping = {1: 'Женщина', 2: 'Мужчина', 0: 'Пол не указан', 3: 'Пол не указан'}
+                    gender = gender_mapping.get(user_profile.get('sex'))
+                    city = user_profile.get('city', {}).get('title', None)
+                    birthdate_str = user_profile.get('bdate', None)
+                    age = get_user_age(birthdate_str)
+
+                    # Вставляем данные пользователя в таблицу user_account
+                    user_db = User_DB(conn, cur,
+                                      gender=gender,
+                                      age=age,
+                                      city=city,
+                                      first_name=first_name,
+                                      last_name=last_name,
+                                      account_link=f"https://vk.com/id{user_id}")
+                    user_db.put_a_person()
+                    conn.commit()
+
+                    write_msg(user_id, f'{random.choice(answer_list)}')
+                    write_msg(user_id,
                               f'Подскажи, кого мы ищем?\nУкажи пол:',
                               keyboard=create_gender_keyboard().get_keyboard())
                 elif request.lower() == 'мужчина' or request.lower() == 'женщина':
                     criteria = 2 if request.lower() == 'мужчина' else 1
-                    search_users(event.user_id, criteria, user_token)
+                    search_users(user_id, criteria, user_token)
                 elif request == 'Далее':
                     if criteria:
-                        search_users(event.user_id, criteria, user_token)
+                        search_users(user_id, criteria, user_token)
                     else:
-                        write_msg(event.user_id, 'Сначала укажите пол.')
+                        write_msg(user_id, 'Сначала укажите пол.')
                 elif request == 'Like' or request == 'ЧС':
-                    # Получаем информацию о пользователе
-                    user_info = vk.method('users.get', {'user_ids': event.user_id, 'fields': 'first_name,last_name'})
-                    first_name = user_info[0]['first_name']
-                    last_name = user_info[0]['last_name']
-                    account_link = f"https://vk.com/id{event.user_id}"
+                    if not shown_users:
+                        write_msg(user_id, 'Сначала найдите подходящего пользователя.')
+                        continue
 
-                    # Получаем топ-3 фотографии пользователя
-                    photo_links = get_top_photos(event.user_id)
 
-                    # Создаем объект для работы с БД
-                    user_db = User_DB(conn, cur, gender=None, age=None, city=None,
-                                      first_name=first_name, last_name=last_name,
-                                      account_link=account_link, photo_links=photo_links)
+                    last_shown_user_id = shown_users[-1]
+                    last_shown_user_info = get_user_profile(last_shown_user_id)
+                    last_shown_user_photos = get_top_photos(last_shown_user_id)
+
+                    birthdate_str = last_shown_user_info.get('bdate', None)
+                    age = get_user_age(birthdate_str)
+                    gender_mapping = {1: 'Женщина', 2: 'Мужчина', 0: 'Пол не указан', 3: 'Пол не указан'}
+                    gender = gender_mapping.get(last_shown_user_info.get('sex'))
+                    city = last_shown_user_info['city']['title'] if 'city' in last_shown_user_info else None
+
+                    user_db = User_DB(conn, cur,
+                                      gender=gender,
+                                      age=age,
+                                      city=city,
+                                      first_name=last_shown_user_info['first_name'],
+                                      last_name=last_shown_user_info['last_name'],
+                                      account_link=f"https://vk.com/id{last_shown_user_id}",
+                                      photo_links=last_shown_user_photos)
 
                     if request == 'Like':
                         user_db.put_a_person()
-                        write_msg(event.user_id, 'Вы добавили вариант в список понравившихся.')
+                        write_msg(user_id, 'Вы добавили вариант в список понравившихся.')
+
                     elif request == 'ЧС':
-                        user_db.put_a_person()
-                        write_msg(event.user_id, 'Вы добавили вариант в черный список.')
+                        user_db.put_a_person()  # Пользователь не понравился
+                        write_msg(user_id, 'Вы добавили вариант в черный список.')
+                    conn.commit()
 
                     if criteria:
-                        if event.user_id in shown_users:
-                            shown_users.remove(event.user_id)
-                        search_users(event.user_id, criteria, user_token)
+                        if last_shown_user_id in shown_users:
+                            shown_users.remove(last_shown_user_id)
+                        search_users(user_id, criteria, user_token)
                     else:
-                        write_msg(event.user_id, 'Сначала укажите пол.')
+                        write_msg(user_id, 'Сначала укажите пол.')
 
 
 try:
