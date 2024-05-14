@@ -297,14 +297,23 @@ def main_loop():
                                       last_name=last_shown_user_info['last_name'],
                                       account_link=f"https://vk.com/id{last_shown_user_id}",
                                       photo_links=last_shown_user_photos)
-
                     if request == 'Like':
                         user_db.put_a_person()
                         write_msg(user_id, 'Вы добавили вариант в список понравившихся.')
+                    favorite_data = to_like(self, like_id)
+                    for item in favorite_data:
+                        first_name, last_name, page, photos = item[0], item[1], item[2], item[3]
+                        photos = photos[1:-1]
+                        write_msg(user_id, f'{first_name} {last_name}\n{page}', None, photos)
 
                     elif request == 'ЧС':
                         user_db.put_a_person()  # Пользователь не понравился
                         write_msg(user_id, 'Вы добавили вариант в черный список.')
+                    favorite_data = to_block(self, block_id)
+                    for item in favorite_data:
+                        first_name, last_name, page, photos = item[0], item[1], item[2], item[3]
+                        photos = photos[1:-1]
+                        write_msg(user_id, f'{first_name} {last_name}\n{page}', None, photos)
                     conn.commit()
 
                     if criteria:
@@ -313,6 +322,9 @@ def main_loop():
                         search_users(user_id, criteria, user_token)
                     else:
                         write_msg(user_id, 'Сначала укажите пол.')
+               
+                   
+
 
 
 try:
