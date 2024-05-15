@@ -322,3 +322,8 @@ def main_loop():
                         search_users(user_id, criteria, user_token)
                     else:
                         write_msg(user_id, 'Сначала укажите пол.')
+    try:
+        main_loop()
+    except Exception as e:
+        logging.error(f"Error in main loop: {e}")
+        raise
