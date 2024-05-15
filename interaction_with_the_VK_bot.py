@@ -6,7 +6,7 @@ from datetime import datetime
 from vk_api.longpoll import VkLongPoll, VkEventType
 from vk_api.keyboard import VkKeyboard, VkKeyboardColor
 from Token import community_token, user_token
-from work_with_data_base.interactions_with_DB import (User_DB)
+from work_with_data_base.interactions_with_DB import * 
 from work_with_data_base.user_data.DB_login_info import database, user, password
 
 conn = psycopg2.connect(database=database, user=user, password=password)
@@ -306,7 +306,7 @@ def main_loop():
                         photos = photos[1:-1]
                         write_msg(user_id, f'{first_name} {last_name}\n{page}', None, photos)
 
-                    elif request == 'ЧС':
+                    if request == 'ЧС':
                         user_db.put_a_person()  # Пользователь не понравился
                         write_msg(user_id, 'Вы добавили вариант в черный список.')
                     favorite_data = to_block(self, block_id)
@@ -322,13 +322,3 @@ def main_loop():
                         search_users(user_id, criteria, user_token)
                     else:
                         write_msg(user_id, 'Сначала укажите пол.')
-               
-                   
-
-
-
-try:
-    main_loop()
-except Exception as e:
-    logging.error(f"Error in main loop: {e}")
-    raise
