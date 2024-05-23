@@ -179,4 +179,4 @@
 
 ## Схема БД
 
-![Схема БД](PSQL_tables.png)
+![Схема БД](PSQL_tables (2).png)
