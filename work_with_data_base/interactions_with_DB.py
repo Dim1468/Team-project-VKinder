@@ -8,6 +8,8 @@ class user_DB:
         self.user_id = user_id
         self.conn = conn
 
+
+class bot_user_DB(user_DB):
     # клаёт пользователя в бвзу данных
     def put_bot_user(self):
         try:
@@ -52,6 +54,7 @@ class user_DB:
             ''', (match_id, self.user_id))
             if cur.fetchone():
                 return True
+            return False
 
     # показывает последнего вк пользователя, попавшегося в поиске конкретному пользователю бота
     #    user_id - id пользователя бота
