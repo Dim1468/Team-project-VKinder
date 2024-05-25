@@ -1,4 +1,7 @@
 import psycopg2
+from psycopg2._json import Json
+from psycopg2.errors import ForeignKeyViolation
+
 
 # класс для создания экземпляров пользователей ботом
 class user_DB:
@@ -9,8 +12,9 @@ class user_DB:
         self.conn = conn
 
 
+# дочерний класс от user_DB, для создания экземпляров пользователей ботом
 class bot_user_DB(user_DB):
-    # клаёт пользователя в бвзу данных
+    # клаёт пользователя в бaзу данных
     def put_bot_user(self):
         try:
             with self.conn.cursor() as cur:
@@ -18,7 +22,7 @@ class bot_user_DB(user_DB):
                     INSERT INTO bot_users
                     VALUES (%s)
                 ''', (self.user_id, ))
-            self.conn.commit()
+                self.conn.commit()
         except psycopg2.errors.UniqueViolation:
             pass
 
@@ -38,9 +42,9 @@ class bot_user_DB(user_DB):
                     INSERT INTO search_users(match_id, search_id, flag)
                     VALUES (%s, lastval(), %s);
                 ''', (self.user_id, criteria, status, match_id, flag))
-            self.conn.commit()
-        except psycopg2.errors.InFailedSqlTransaction as e:
-            return e
+                self.conn.commit()
+        except psycopg2.errors.ForeignKeyViolation:
+            return 'User is not found'
 
     # используется методом put_search_data, проверяет, находится ли пользователь в чёрном списке
     #    match_id - id пользователя вк, попавшемся при поиске
@@ -58,19 +62,22 @@ class bot_user_DB(user_DB):
 
     # показывает последнего вк пользователя, попавшегося в поиске конкретному пользователю бота
     #    user_id - id пользователя бота
-    def get_last_shown_user(self):
+    def get_last_shown_user(self) -> tuple | set[ForeignKeyViolation]:
         try:
-            with self.conn.cursor() as cur:
-                cur.execute('''
-                    SELECT criteria, status, first_name, last_name, gender, age, city, account_link, photo_links
-                    FROM vk_users 
-                    JOIN search_users ON vk_users.user_id = search_users.match_id
-                    JOIN searches ON search_users.search_id = searches.id
-                    WHERE starter_id = %s;
-                ''', (self.user_id, ))
-                return cur.fetchone()
-        except psycopg2.errors.InFailedSqlTransaction as e:
-            return e
+            try:
+                with self.conn.cursor() as cur:
+                    cur.execute('''
+                        SELECT criteria, status, first_name, last_name, gender, age, city, account_link, photo_links
+                        FROM vk_users 
+                        JOIN search_users ON vk_users.user_id = search_users.match_id
+                        JOIN searches ON search_users.search_id = searches.id
+                        WHERE starter_id = %s;
+                    ''', (self.user_id, ))
+                    return cur.fetchall()[-1]
+            except IndexError:
+                return ()
+        except psycopg2.errors.ForeignKeyViolation as e:
+            return {e}
 
     # добавляет пользователя в список избранных
     #    user_id - id пользователя бота
@@ -82,7 +89,7 @@ class bot_user_DB(user_DB):
                     cur.execute('''
                         INSERT INTO to_like(user_account_id, liked_account_id) VALUES(%s, %s)
                     ''', (self.user_id, like_id))
-                self.conn.commit()
+                    self.conn.commit()
             else:
                 print('Так нельзя!')
         except psycopg2.errors.ForeignKeyViolation:
@@ -98,7 +105,7 @@ class bot_user_DB(user_DB):
                     cur.execute('''
                         INSERT INTO to_block(user_account_id, blocked_account_id) VALUES(%s, %s)
                     ''', (self.user_id, block_id))
-                self.conn.commit()
+                    self.conn.commit()
             else:
                 print('Нельзя заблокировать самого себя')
         except psycopg2.errors.ForeignKeyViolation:
@@ -115,8 +122,8 @@ class vk_user_DB(user_DB):
     #   last_name - фамилия
     #   account_link - ссылка на страничку вк
     #   photo_links - словарь с фотографиями
-    def put_a_vk_user(self, gender: str, age: int, city: str, first_name: str, last_name: str,
-                      account_link: str, photo_links: dict):
+    def put_a_vk_user(self, gender: str, age: int | None, city: str | None, first_name: str, last_name: str | None,
+                      account_link: str, photo_links: Json | None):
         try:
             with self.conn.cursor() as cur:
                 cur.execute('''
@@ -124,6 +131,6 @@ class vk_user_DB(user_DB):
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 ''', (self.user_id, first_name, last_name, gender, age,
                       city, account_link, photo_links))
-            self.conn.commit()
+                self.conn.commit()
         except psycopg2.errors.UniqueViolation:
             pass
